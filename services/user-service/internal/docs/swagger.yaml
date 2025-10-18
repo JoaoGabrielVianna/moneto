@@ -1,0 +1,203 @@
+definitions:
+  model.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        example: joao@example.com
+        type: string
+      id:
+        type: string
+      name:
+        example: João Gabriel
+        type: string
+      password:
+        example: secret123
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.UserResponse:
+    properties:
+      created_at:
+        type: string
+      email:
+        example: joao@example.com
+        type: string
+      id:
+        type: string
+      name:
+        example: João Gabriel
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.UserUpdate:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /user/{id}:
+    get:
+      description: Retorna os dados do usuário correspondente ao ID fornecido na URL
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Usuário encontrado com sucesso
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "400":
+          description: ID do usuário é obrigatório
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "500":
+          description: Usuário não encontrado
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+      summary: Busca usuário por ID
+      tags:
+      - Users
+  /user/create:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo usuário no sistema
+      parameters:
+      - description: Dados do usuário
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserResponse'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Usuário criado com sucesso
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "400":
+          description: Erro na requisição
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "500":
+          description: Erro interno do servidor
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+      summary: Cria um usuário
+      tags:
+      - Users
+  /user/delete/{id}:
+    delete:
+      description: Remove um usuário existente pelo ID fornecido na URL
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Usuário deletado com sucesso
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "400":
+          description: ID do usuário é obrigatório
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "500":
+          description: Erro ao deletar usuário
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+      summary: Deleta um usuário
+      tags:
+      - Users
+  /user/update/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os campos informados do usuário pelo ID
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Campos para atualizar do usuário
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/model.UserUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Usuário atualizado com sucesso
+          schema:
+            $ref: '#/definitions/model.User'
+        "400":
+          description: Erro na requisição
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "404":
+          description: Usuário não encontrado
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+        "500":
+          description: Erro interno do servidor
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+      summary: Atualiza usuário
+      tags:
+      - Users
+  /users/:
+    get:
+      description: Retorna lista de usuários filtrada por parâmetros opcionais id,
+        name e email
+      parameters:
+      - description: Filtro por ID do usuário
+        in: query
+        name: id
+        type: string
+      - description: Filtro por nome do usuário
+        in: query
+        name: name
+        type: string
+      - description: Filtro por email do usuário
+        in: query
+        name: email
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Lista de usuários retornada com sucesso
+          schema:
+            items:
+              $ref: '#/definitions/model.User'
+            type: array
+        "400":
+          description: Erro na requisição
+          schema:
+            $ref: '#/definitions/model.UserResponse'
+      summary: Lista usuários
+      tags:
+      - Users
+swagger: "2.0"
