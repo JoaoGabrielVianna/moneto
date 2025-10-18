@@ -1,0 +1,181 @@
+definitions:
+  model.Income:
+    properties:
+      amount:
+        type: string
+      category_id:
+        type: string
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  model.IncomeResponse:
+    properties:
+      amount:
+        type: string
+      category_id:
+        type: string
+      created_at:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  model.IncomeUpdate:
+    properties:
+      amount:
+        type: string
+      category_id:
+        type: string
+      date:
+        type: string
+      description:
+        type: string
+      notes:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /income/{id}:
+    get:
+      description: Retorna os dados de uma renda pelo ID
+      parameters:
+      - description: ID da renda
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+        "400":
+          description: id da renda é obrigatória
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+        "500":
+          description: renda não encontrada
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+      summary: Buscar renda por ID
+      tags:
+      - Income
+  /income/create:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova renda para um usuário
+      parameters:
+      - description: Dados da renda
+        in: body
+        name: income
+        required: true
+        schema:
+          $ref: '#/definitions/model.IncomeResponse'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+        "400":
+          description: corpo da requisição inválido
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+        "500":
+          description: erro interno do servidor
+          schema:
+            $ref: '#/definitions/model.IncomeResponse'
+      summary: Criar renda
+      tags:
+      - Income
+  /income/delete/{id}:
+    delete:
+      description: Remove uma renda existente pelo seu ID
+      parameters:
+      - description: ID da renda
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: id da renda é obrigatória
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: renda não deletada
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Deletar renda
+      tags:
+      - Income
+  /income/update/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Atualiza informações de uma renda pelo seu ID
+      parameters:
+      - description: ID da renda
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados para atualização
+        in: body
+        name: update
+        required: true
+        schema:
+          $ref: '#/definitions/model.IncomeUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.Income'
+        "400":
+          description: corpo da requisição inválido ou ID ausente
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: erro ao atualizar renda
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Atualizar renda
+      tags:
+      - Income
+swagger: "2.0"
