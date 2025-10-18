@@ -1,0 +1,138 @@
+definitions:
+  model.ExpenseReponse:
+    properties:
+      amount:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      updated_at:
+        type: string
+      user:
+        $ref: '#/definitions/model.UserResponse'
+      user_id:
+        type: string
+    type: object
+  model.UserResponse:
+    properties:
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /expense/{id}:
+    get:
+      description: Retorna os dados de uma despesa pelo ID
+      parameters:
+      - description: ID da despesa
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "400":
+          description: id da despesa é obrigatória
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "500":
+          description: despesa não encontrada
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+      summary: Buscar despesa por ID
+      tags:
+      - Expense
+  /expense/create:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova despesa para um usuário
+      parameters:
+      - description: Dados da despesa
+        in: body
+        name: income
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExpenseReponse'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "400":
+          description: corpo da requisição inválido
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "500":
+          description: erro interno do servidor
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+      summary: Criar despesa
+      tags:
+      - Expense
+  /expense/delete/{id}:
+    delete:
+      description: Remove uma despesa existente pelo seu ID
+      parameters:
+      - description: ID da despesa
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: id da despesa é obrigatória
+        "500":
+          description: despesa não deletada
+      summary: Deletar despesa
+      tags:
+      - Expense
+  /expense/update/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Atualiza informações de uma despesa pelo seu ID
+      parameters:
+      - description: ID da despesa
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados para atualização
+        in: body
+        name: update
+        required: true
+        schema:
+          $ref: '#/definitions/model.ExpenseReponse'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "400":
+          description: corpo da requisição inválido ou ID ausente
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+        "500":
+          description: erro ao atualizar despesa
+          schema:
+            $ref: '#/definitions/model.ExpenseReponse'
+      summary: Atualizar despesa
+      tags:
+      - Expense
+swagger: "2.0"
