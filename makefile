@@ -1,10 +1,10 @@
 run-user-service:
 	clear
-	@cd services/user-service/ && go run cmd/main.go
+	@cd services/user/ && go run cmd/main.go
 
 run-income-service:
 	clear
-	@cd services/income-service/ && go run cmd/main.go
+	@cd services/income/ && go run cmd/main.go
 	
 run-expense-service:
 	clear
