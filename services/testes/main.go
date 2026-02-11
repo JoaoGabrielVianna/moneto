@@ -2,305 +2,75 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha1"
+	"encoding/csv"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
+	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/ledongthuc/pdf"
 )
 
-//
-// =========================================================
-// 🧩 SEÇÃO 1 — MODELOS
-// =========================================================
-//
+// ========================================
+// 🚀 Configuração básica do servidor
+// ========================================
 
-type PdfPage struct {
-	Numero      int         `json:"numero"`
-	Transacoes  []Transacao `json:"transacoes"`
-	ConteudoRaw string      `json:"conteudo_raw,omitempty"`
-}
-
-type PdfMetadata struct {
-	Banco        string `json:"banco"`
-	DataEmissao  string `json:"data_emissao"`
-	Titular      string `json:"titular"`
-	Agencia      string `json:"agencia"`
-	Conta        string `json:"conta"`
-	PeriodoIni   string `json:"periodo_inicio"`
-	PeriodoFim   string `json:"periodo_fim"`
-	TotalPaginas int    `json:"total_paginas"`
-}
-
-type Transacao struct {
-	Data      string  `json:"data"`
-	Historico string  `json:"historico"`
-	Documento string  `json:"documento,omitempty"`
-	Credito   float64 `json:"credito,omitempty"`
-	Debito    float64 `json:"debito,omitempty"`
-	Saldo     float64 `json:"saldo"`
-}
-
-//
-// =========================================================
-// 🧠 SEÇÃO 2 — UTILITÁRIOS
-// =========================================================
-//
-
-// Converte "1.234,56" → 1234.56
-func parseFloatBr(v string) float64 {
-	v = strings.ReplaceAll(v, ".", "")
-	v = strings.ReplaceAll(v, ",", ".")
-	f, _ := strconv.ParseFloat(v, 64)
-	return f
-}
-
-// Gera ID determinístico com base nos dados da transação
-func gerarIDTransacao(t Transacao) string {
-	var tipo string
-	var valor float64
-	if t.Credito > 0 {
-		tipo = "credito"
-		valor = t.Credito
-	} else {
-		tipo = "debito"
-		valor = t.Debito
+func enableCORS(w http.ResponseWriter, r *http.Request) bool {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Internal-API-Key, X-User-Id")
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusNoContent)
+		return false
 	}
-	base := fmt.Sprintf("%s|%s|%s|%.2f|%s", t.Data, t.Historico, t.Documento, valor, tipo)
-	hash := sha1.Sum([]byte(base))
-	return hex.EncodeToString(hash[:])[:20]
+	return true
 }
 
-//
-// =========================================================
-// 📄 SEÇÃO 3 — EXTRAÇÃO PDF
-// =========================================================
-//
+// ========================================
+// 🧩 Gera ID determinístico (idempotente)
+// ========================================
 
-func extractText(path string) ([]PdfPage, error) {
-	f, r, err := pdf.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
+func generateDeterministicID(userID, date, description, amount string) string {
+	key := fmt.Sprintf("%s|%s|%s|%s", userID, date, strings.ToUpper(description), amount)
+	hash := sha1.Sum([]byte(key))
+	return hex.EncodeToString(hash[:])[:22] // 22 caracteres curtos e únicos
+}
 
-	var pages []PdfPage
-	for i := 1; i <= r.NumPage(); i++ {
-		p := r.Page(i)
-		if p.V.IsNull() {
+// ========================================
+// 🔁 Remove duplicadas dentro do mesmo CSV
+// ========================================
+
+func uniqueTransactions(transactions []map[string]any) []map[string]any {
+	seen := make(map[string]bool)
+	var result []map[string]any
+	for _, tx := range transactions {
+		id, ok := tx["id"].(string)
+		if !ok {
 			continue
 		}
-		txt, _ := p.GetPlainText(nil)
-		txt = strings.Join(strings.Fields(strings.ReplaceAll(txt, "\n", " ")), " ")
-		pages = append(pages, PdfPage{Numero: i, ConteudoRaw: txt})
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, tx)
+		}
 	}
-	return pages, nil
+	return result
 }
 
-//
-// =========================================================
-// 🏦 SEÇÃO 4 — METADADOS
-// =========================================================
-//
+// ========================================
+// 📄 Preview do CSV (Frontend → /import/preview)
+// ========================================
 
-func extractMetadata(page string, total int) (PdfMetadata, string) {
-	meta := PdfMetadata{TotalPaginas: total}
-
-	reBanco := regexp.MustCompile(`(?i)Bradesco\s+Celular`)
-	reData := regexp.MustCompile(`Data:\s*([0-9/:\-\s]+)`)
-	reNome := regexp.MustCompile(`Nome:\s*([A-Z\s]+)`)
-	reAgenciaConta := regexp.MustCompile(`Ag[eê]ncia:\s*(\d+)\s*\|\s*Conta:\s*([\d-]+)`)
-	rePeriodo := regexp.MustCompile(`Movimentação entre:\s*(\d{2}/\d{2}/\d{4})\s*e\s*(\d{2}/\d{2}/\d{4})`)
-
-	if reBanco.MatchString(page) {
-		meta.Banco = "Bradesco Celular"
-		page = reBanco.ReplaceAllString(page, "")
+func previewImportHandler(w http.ResponseWriter, r *http.Request) {
+	if !enableCORS(w, r) {
+		return
 	}
-	if m := reData.FindStringSubmatch(page); len(m) > 1 {
-		meta.DataEmissao = strings.TrimSpace(m[1])
-		page = strings.Replace(page, m[0], "", 1)
-	}
-	if m := reNome.FindStringSubmatch(page); len(m) > 1 {
-		meta.Titular = strings.TrimSpace(m[1])
-		page = strings.Replace(page, m[0], "", 1)
-	}
-	if m := reAgenciaConta.FindStringSubmatch(page); len(m) > 2 {
-		meta.Agencia = m[1]
-		meta.Conta = m[2]
-		page = strings.Replace(page, m[0], "", 1)
-	}
-	if m := rePeriodo.FindStringSubmatch(page); len(m) > 2 {
-		meta.PeriodoIni = m[1]
-		meta.PeriodoFim = m[2]
-		page = strings.Replace(page, m[0], "", 1)
-	}
-
-	return meta, strings.TrimSpace(page)
-}
-
-//
-// =========================================================
-// 💰 SEÇÃO 5 — PARSE DAS TRANSAÇÕES
-// =========================================================
-//
-
-func parseTransacoes(conteudo string) []Transacao {
-	if idx := strings.Index(strings.ToLower(conteudo), "saldo (r$)"); idx != -1 {
-		conteudo = conteudo[idx+len("saldo (r$)"):]
-	}
-
-	tokens := strings.Fields(strings.TrimSpace(conteudo))
-	reData := regexp.MustCompile(`^\d{2}/\d{2}/\d{4}$`)
-	reDoc := regexp.MustCompile(`^\d{5,8}$`)
-	reValor := regexp.MustCompile(`^\d{1,3}(\.\d{3})*,\d{2}$`)
-
-	var transacoes []Transacao
-	var atual Transacao
-	var buffer []string
-	var lastDate string
-
-	for _, t := range tokens {
-		switch {
-		case reData.MatchString(t):
-			if atual.Data != "" && (atual.Credito > 0 || atual.Debito > 0) {
-				transacoes = append(transacoes, atual)
-				atual = Transacao{}
-				buffer = nil
-			}
-			atual.Data = t
-			lastDate = t
-
-		case reDoc.MatchString(t):
-			atual.Documento = t
-
-		case reValor.MatchString(t):
-			valor := parseFloatBr(t)
-			if atual.Credito == 0 && atual.Debito == 0 {
-				h := strings.ToUpper(strings.Join(buffer, " "))
-				if strings.Contains(h, "REM") || strings.Contains(h, "TED") ||
-					strings.Contains(h, "DEP") || strings.Contains(h, "REND") {
-					atual.Credito = valor
-				} else {
-					atual.Debito = valor
-				}
-			} else {
-				atual.Saldo = valor
-				atual.Historico = strings.TrimSpace(strings.Join(buffer, " "))
-				if atual.Data == "" {
-					atual.Data = lastDate
-				}
-				transacoes = append(transacoes, atual)
-				atual = Transacao{}
-				buffer = nil
-			}
-		default:
-			buffer = append(buffer, t)
-		}
-	}
-
-	if atual.Data == "" && lastDate != "" {
-		atual.Data = lastDate
-	}
-	if atual.Data != "" && (atual.Credito > 0 || atual.Debito > 0) {
-		if atual.Historico == "" {
-			atual.Historico = strings.TrimSpace(strings.Join(buffer, " "))
-		}
-		transacoes = append(transacoes, atual)
-	}
-
-	return transacoes
-}
-
-//
-// =========================================================
-// 🌐 SEÇÃO 6 — ENVIO AOS MICROSSERVIÇOS
-// =========================================================
-//
-
-func enviarTransacoes(transacoes []Transacao) error {
-	client := &http.Client{Timeout: 10 * time.Second}
-
-	token := "MTc1NDg0OTAzODY1MTc5MDg4MDUyODU6MTc2MDg1MDEzNy4yNzFmMDc3ZWNkYzYwYjQzYTBlMzA4Y2E5OTVkZTBhNTk3Mzg1YmI0NTNjMjA3NjdkODQ3MGI0ZDdjYmYxYmE3"
-	userID := "17548490386517908805285"
-	categoryID := "17562509453636961176898"
-
-	for _, t := range transacoes {
-		var endpoint string
-		var amount float64
-
-		if t.Credito > 0 {
-			endpoint = "http://localhost:3002/incomes/create"
-			amount = t.Credito
-		} else if t.Debito > 0 {
-			endpoint = "http://localhost:3003/expenses/create"
-			amount = t.Debito
-		} else {
-			continue
-		}
-
-		dt, err := time.Parse("02/01/2006", t.Data)
-		if err != nil {
-			fmt.Printf("⚠️ Erro parseando data %s: %v\n", t.Data, err)
-			continue
-		}
-
-		id := gerarIDTransacao(t)
-		payload := map[string]interface{}{
-			"id":          id,
-			"user_id":     userID,
-			"category_id": categoryID,
-			"amount":      fmt.Sprintf("%.2f", amount),
-			"description": t.Historico,
-			"date":        dt.Format(time.RFC3339),
-			"notes":       "Importado do extrato BRADESCO",
-		}
-
-		body, _ := json.Marshal(payload)
-		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, endpoint, bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+token)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			fmt.Printf("❌ Erro enviando para %s: %v\n", endpoint, err)
-			continue
-		}
-		defer resp.Body.Close()
-
-		switch {
-		case resp.StatusCode == http.StatusConflict:
-			fmt.Printf("⚠️ Já existente: %s | %s\n", t.Data, t.Historico)
-		case resp.StatusCode >= 200 && resp.StatusCode < 300:
-			fmt.Printf("✅ %s enviada para %s | R$ %.2f\n", t.Data, endpoint, amount)
-		default:
-			fmt.Printf("⚠️ Falha [%d] %s | %s\n", resp.StatusCode, endpoint, t.Historico)
-		}
-	}
-
-	return nil
-}
-
-//
-// =========================================================
-// 🧭 SEÇÃO 7 — HANDLER HTTP
-// =========================================================
-//
-
-func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Use POST", http.StatusMethodNotAllowed)
 		return
 	}
-
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Erro lendo arquivo: "+err.Error(), http.StatusBadRequest)
@@ -311,45 +81,219 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	tmpPath := "./" + header.Filename
 	out, _ := os.Create(tmpPath)
 	defer out.Close()
-	_, _ = out.ReadFrom(file)
+	io.Copy(out, file)
 
-	pages, err := extractText(tmpPath)
-	os.Remove(tmpPath)
+	f, err := os.Open(tmpPath)
 	if err != nil {
-		http.Error(w, "Erro lendo PDF: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Erro abrindo CSV: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer f.Close()
+	os.Remove(tmpPath)
 
-	meta, cleaned := extractMetadata(pages[0].ConteudoRaw, len(pages))
-	pages[0].ConteudoRaw = cleaned
+	reader := csv.NewReader(f)
+	reader.Comma = ';'
+	reader.FieldsPerRecord = -1
 
-	var all []Transacao
-	for i := range pages {
-		pages[i].Transacoes = parseTransacoes(pages[i].ConteudoRaw)
-		all = append(all, pages[i].Transacoes...)
-	}
-
-	if err := enviarTransacoes(all); err != nil {
-		http.Error(w, "Erro enviando transações: "+err.Error(), http.StatusInternalServerError)
-		return
+	var allRows [][]string
+	for {
+		record, err := reader.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			http.Error(w, "Erro lendo CSV: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		allRows = append(allRows, record)
 	}
 
 	resp := map[string]any{
-		"metadata": meta,
-		"total":    len(all),
+		"message":  "CSV processado com sucesso",
+		"filename": header.Filename,
+		"rows":     allRows,
+		"total":    len(allRows),
 	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+
+	fmt.Printf("✅ Preview de CSV recebido: %s (%d linhas)\n", header.Filename, len(allRows))
+}
+
+// ========================================
+// 💾 Importa batch para Incomes e Expenses
+// ========================================
+
+func saveBatchHandler(w http.ResponseWriter, r *http.Request) {
+	if !enableCORS(w, r) {
+		return
+	}
+
+	if r.Method != http.MethodPost {
+		http.Error(w, "Use POST", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var payload struct {
+		UserID     string     `json:"user_id"`
+		CategoryID string     `json:"category_id"`
+		Rows       [][]string `json:"rows"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "Erro lendo JSON: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if payload.UserID == "" {
+		http.Error(w, "user_id é obrigatório", http.StatusBadRequest)
+		return
+	}
+	if payload.CategoryID == "" {
+		http.Error(w, "category_id é obrigatório", http.StatusBadRequest)
+		return
+	}
+	if len(payload.Rows) < 3 {
+		http.Error(w, "Nenhum dado válido encontrado", http.StatusBadRequest)
+		return
+	}
+
+	var incomes []map[string]any
+	var expenses []map[string]any
+
+	parseDate := func(d string) string {
+		parts := strings.Split(d, "/")
+		if len(parts) == 3 {
+			return fmt.Sprintf("%s-%s-%sT00:00:00Z", parts[2], parts[1], parts[0])
+		}
+		return d
+	}
+
+	parseValue := func(v string) float64 {
+		v = strings.ReplaceAll(v, ".", "")
+		v = strings.ReplaceAll(v, ",", ".")
+		val, _ := strconv.ParseFloat(v, 64)
+		return val
+	}
+
+	for i, row := range payload.Rows {
+		if i == 0 {
+			continue
+		}
+		if len(row) < 6 {
+			continue
+		}
+
+		date := strings.TrimSpace(row[0])
+		description := strings.TrimSpace(row[1])
+		credit := strings.TrimSpace(row[3])
+		debit := strings.TrimSpace(row[4])
+
+		if date == "" || description == "" ||
+			strings.EqualFold(date, "Data") ||
+			strings.Contains(strings.ToLower(description), "histórico") ||
+			strings.Contains(strings.ToLower(description), "saldo") ||
+			strings.Contains(strings.ToLower(description), "total") {
+			continue
+		}
+
+		date = parseDate(date)
+
+		if credit != "" && credit != "0,00" {
+			amount := fmt.Sprintf("%.2f", parseValue(credit))
+			id := generateDeterministicID(payload.UserID, date, description, amount)
+			incomes = append(incomes, map[string]any{
+				"id":          id,
+				"user_id":     payload.UserID,
+				"category_id": payload.CategoryID,
+				"description": description,
+				"amount":      amount,
+				"date":        date,
+			})
+		}
+		if debit != "" && debit != "0,00" {
+			amount := fmt.Sprintf("%.2f", parseValue(debit))
+			id := generateDeterministicID(payload.UserID, date, description, amount)
+			expenses = append(expenses, map[string]any{
+				"id":          id,
+				"user_id":     payload.UserID,
+				"category_id": payload.CategoryID,
+				"description": description,
+				"amount":      amount,
+				"date":        date,
+			})
+		}
+	}
+
+	// 🔹 Remove duplicados internos
+	incomes = uniqueTransactions(incomes)
+	expenses = uniqueTransactions(expenses)
+
+	fmt.Printf("📦 Pronto pra enviar: %d incomes | %d expenses\n", len(incomes), len(expenses))
+
+	internalKey := os.Getenv("INTERNAL_API_KEY")
+	if internalKey == "" {
+		internalKey = "mude-me"
+	}
+
+	userId := payload.UserID
+	var totalIncomes, totalExpenses int
+
+	if len(incomes) > 0 {
+		if err := sendBatch("http://localhost:3002/incomes/batch", incomes, internalKey, userId); err == nil {
+			totalIncomes = len(incomes)
+		}
+	}
+	if len(expenses) > 0 {
+		if err := sendBatch("http://localhost:3003/expenses/batch", expenses, internalKey, userId); err == nil {
+			totalExpenses = len(expenses)
+		}
+	}
+
+	resp := map[string]any{
+		"message":  fmt.Sprintf("Importação concluída: %d receitas, %d despesas", totalIncomes, totalExpenses),
+		"incomes":  totalIncomes,
+		"expenses": totalExpenses,
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
 
-//
-// =========================================================
-// 🚀 SEÇÃO 8 — MAIN
-// =========================================================
-//
+// ========================================
+// 📡 Envia lote para outro microserviço
+// ========================================
+
+func sendBatch(url string, data []map[string]any, internalKey, userId string) error {
+	body, _ := json.Marshal(data)
+	req, _ := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Internal-API-Key", internalKey)
+	req.Header.Set("X-User-Id", userId)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		fmt.Println("❌ Erro ao enviar batch:", err)
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		fmt.Printf("⚠️ Erro do serviço destino (%s): %s\n", url, resp.Status)
+	}
+	return nil
+}
+
+// ========================================
+// 🧩 main
+// ========================================
 
 func main() {
-	http.HandleFunc("/upload", uploadHandler)
-	fmt.Println("🚀 Servidor rodando em http://localhost:8080/upload")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/import/preview", previewImportHandler)
+	http.HandleFunc("/import/save-batch", saveBatchHandler)
+
+	port := ":3006"
+	fmt.Printf("🚀 Servidor rodando em http://localhost%s\n", port)
+	http.ListenAndServe(port, nil)
 }
