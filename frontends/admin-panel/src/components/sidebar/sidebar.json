@@ -1,0 +1,84 @@
+{
+    "header": {
+        "title": "Moneto Dashboard",
+        "subtitle": "Controle financeiro pessoal",
+        "logo": "LayoutDashboard"
+    },
+    "body": [
+        {
+            "label": "Visão Geral",
+            "items": [
+                {
+                    "label": "Dashboard",
+                    "icon": "LayoutDashboard",
+                    "to": "/overview"
+                }
+            ]
+        },
+        {
+            "label": "Financeiro",
+            "items": [
+                {
+                    "label": "Transações",
+                    "icon": "DollarSign",
+                    "to": "/transactions"
+                },
+                {
+                    "label": "Categorias",
+                    "icon": "Tag",
+                    "to": "/categories"
+                }
+            ]
+        }
+    ],
+    "footer": {
+        "user": {
+            "name": "João Gabriel",
+            "email": "joaogabriel@moneto.app"
+        },
+        "groups": [
+            {
+                "label": "Plano",
+                "items": [
+                    {
+                        "label": "Upgrade to Pro",
+                        "icon": "Sparkles",
+                        "onClick": "handleUpgrade"
+                    }
+                ]
+            },
+            {
+                "label": "Conta",
+                "items": [
+                    {
+                        "label": "Account",
+                        "icon": "BadgeCheck"
+                    },
+                    {
+                        "label": "Billing",
+                        "icon": "CreditCard"
+                    },
+                    {
+                        "label": "Notifications",
+                        "icon": "Bell"
+                    }
+                ]
+            },
+            {
+                "label": "Sair",
+                "items": [
+                    {
+                        "label": "Logout",
+                        "icon": "LogOut",
+                        "onClick": "handleLogout"
+                    },
+                    {
+                        "label": "teste",
+                        "icon": "BadgeCheck",
+                        "onClick": "handleTest"
+                    }
+                ]
+            }
+        ]
+    }
+}

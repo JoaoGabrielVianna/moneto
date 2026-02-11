@@ -1,0 +1,3 @@
+ALTER TABLE INCOMES
+		ADD COLUMN description TEXT, 
+		ADD COLUMN notes TEXT
