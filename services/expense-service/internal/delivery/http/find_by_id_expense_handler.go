@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 )
 
 // FindById busca uma despesa pelo ID
@@ -20,17 +20,17 @@ func (h *ExpenseHandler) FindByIdExpense(w http.ResponseWriter, r *http.Request)
 	id := strings.TrimPrefix(r.URL.Path, "/")
 	if id == "" {
 		log.Error("Id da despesa é obrigatória")
-		response.ERROR(w, http.StatusBadRequest, "id da despesa é obrigatória")
+		response.Error(w, http.StatusBadRequest, "id da despesa é obrigatória")
 		return
 	}
 
 	expense, err := h.Usecase.FindById(r.Context(), id)
 	if err != nil {
 		log.Error("Despesa não encontrada: %s, id: %s", err, id)
-		response.ERROR(w, http.StatusInternalServerError, "despesa não encontrada")
+		response.Error(w, http.StatusInternalServerError, "despesa não encontrada")
 		return
 	}
 
 	log.Success("Despesa encontrada com sucesso!")
-	response.OK(w, expense)
+	response.Success(w, expense, "Despesa encontrada com sucesso!")
 }

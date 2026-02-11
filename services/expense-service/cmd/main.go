@@ -10,8 +10,7 @@ import (
 
 func main() {
 	config.Init()
-	defer config.DB.Close()
 
-	usecase := bootstrap.BuildUseCase(config.DB)
+	usecase := bootstrap.BuildUseCase(config.GetDB())
 	bootstrap.StartServer(usecase)
 }

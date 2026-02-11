@@ -12,4 +12,5 @@ type ExpenseRepository interface {
 	Update(ctx context.Context, id string, expense model.ExpenseUpdate) (*model.ExpenseReponse, error)
 	Delete(ctx context.Context, id string) error
 	List(ctx context.Context, userId string) (*[]model.ExpenseReponse, error)
+	CreateBatch(ctx context.Context, expenses []model.Expense) error
 }

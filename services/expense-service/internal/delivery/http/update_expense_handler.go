@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 	"github.com/joaogabriel/moneto/service/expense/internal/domain/model"
 )
 
@@ -24,14 +24,14 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/update/")
 	if id == "" {
 		log.Error("Id da despesa é obrigatória")
-		response.ERROR(w, http.StatusBadRequest, "id da despesa é obrigatória")
+		response.Error(w, http.StatusBadRequest, "id da despesa é obrigatória")
 		return
 	}
 
 	var update model.ExpenseUpdate
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		log.Error("Erro ao decodificar JSON: %s", err)
-		response.ERROR(w, http.StatusBadRequest, "corpo da requisição inválido")
+		response.Error(w, http.StatusBadRequest, "corpo da requisição inválido")
 		return
 	}
 
@@ -39,10 +39,10 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Error("erro ao atualizar despesa: %s", err)
-		response.ERROR(w, http.StatusInternalServerError, "erro ao atualizar despesa")
+		response.Error(w, http.StatusInternalServerError, "erro ao atualizar despesa")
 		return
 	}
 
 	log.Success("Despesa atualizada com sucesso!")
-	response.OK(w, income)
+	response.Success(w, income, "Despesa atualizada com sucesso!")
 }

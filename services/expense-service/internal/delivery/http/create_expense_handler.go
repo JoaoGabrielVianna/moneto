@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 	"github.com/joaogabriel/moneto/service/expense/internal/domain/model"
 )
 
@@ -22,7 +22,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	var expense model.Expense
 	if err := json.NewDecoder(r.Body).Decode(&expense); err != nil {
 		log.Error("Erro ao decodificar JSON: %s", err)
-		response.ERROR(w, http.StatusBadRequest, "corpo da requisição inválido")
+		response.Error(w, http.StatusBadRequest, "corpo da requisição inválido")
 		return
 	}
 
@@ -31,10 +31,10 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	newExpense, err := h.Usecase.CreateExpense(r.Context(), &expense)
 	if err != nil {
 		log.Error("Erro ao criar despesa: %s", err)
-		response.ERROR(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	log.Success("despesa criada com sucesso!")
-	response.OK(w, newExpense)
+	response.Success(w, newExpense, "despesa criada com sucesso!")
 }

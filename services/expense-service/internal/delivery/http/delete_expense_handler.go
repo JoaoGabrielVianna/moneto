@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 )
 
 // DeleteExpense deleta uma despesa pelo ID
@@ -20,17 +20,17 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimPrefix(r.URL.Path, "/delete/")
 	if id == "" {
 		log.Error("Id da despesa é obrigatória")
-		response.ERROR(w, http.StatusBadRequest, "id da despesa é obrigatória")
+		response.Error(w, http.StatusBadRequest, "id da despesa é obrigatória")
 		return
 	}
 
 	err := h.Usecase.Delete(r.Context(), id)
 	if err != nil {
 		log.Error("Despesa não deletada: %s, id: %s", err, id)
-		response.ERROR(w, http.StatusInternalServerError, "despesa não deletada")
+		response.Error(w, http.StatusInternalServerError, "despesa não deletada")
 		return
 	}
 
 	log.Success("Despesa deletada com sucesso!")
-	response.OK(w, nil)
+	response.Success(w, err, "Despesa deletada com sucesso!")
 }
