@@ -1,1 +1,0 @@
-ALTER TABLE incomes ADD COLUMN category_id TEXT NOT NULL REFERENCES categories(id);

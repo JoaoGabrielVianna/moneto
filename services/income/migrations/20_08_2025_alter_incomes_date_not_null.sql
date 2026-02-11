@@ -1,2 +1,0 @@
-ALTER TABLE incomes
-		ALTER COLUMN date SET NOT NULL	
