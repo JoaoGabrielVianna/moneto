@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 
 	"github.com/joaogabriel/moneto/service/category/internal/domain/model"
 )
@@ -24,17 +24,17 @@ func (h *CategoryHandler) CreateCategory(w http.ResponseWriter, r *http.Request)
 
 	if err := json.NewDecoder(r.Body).Decode(&category); err != nil {
 		log.Error("erro ao decodificar JSON: %s", err)
-		response.ERROR(w, http.StatusBadRequest, "invalid request body")
+		response.Error(w, http.StatusBadRequest, "invalid request body")
 		return
 	}
 
 	newCategory, err := h.usecase.CreateCategory(r.Context(), &category)
 	if err != nil {
 		log.Error("erro ao criar categoria: %s", err)
-		response.ERROR(w, http.StatusInternalServerError, err.Error())
+		response.Error(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	log.Success("categoria criada com sucesso!")
-	response.OK(w, newCategory)
+	response.Success(w, newCategory, "categoria criada com sucesso!")
 }

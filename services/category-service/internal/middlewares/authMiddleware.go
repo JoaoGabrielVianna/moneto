@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/joaogabriel/moneto/pkg/logger"
-	"github.com/joaogabriel/moneto/pkg/response"
 	"github.com/joaogabriel/moneto/pkg/utils"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 )
 
 var (
@@ -20,21 +20,21 @@ func AuthMiddleware(secretKey string) func(http.Handler) http.Handler {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				log.Error("Missing Authorization header")
-				response.ERROR(w, http.StatusUnauthorized, "missing Authorization header")
+				response.Error(w, http.StatusUnauthorized, "missing Authorization header")
 				return
 			}
 
 			parts := strings.SplitN(authHeader, " ", 2)
 			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
 				log.Error("Invalid Authorization header format")
-				response.ERROR(w, http.StatusUnauthorized, "invalid Authorization header format")
+				response.Error(w, http.StatusUnauthorized, "invalid Authorization header format")
 				return
 			}
 
 			userId, err := utils.ValidateToken(parts[1], secretKey)
 			if err != nil {
 				log.Error("Invalid token: %s", err)
-				response.ERROR(w, http.StatusUnauthorized, err.Error())
+				response.Error(w, http.StatusUnauthorized, err.Error())
 				return
 			}
 

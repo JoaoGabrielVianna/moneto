@@ -3,16 +3,16 @@ package category_http
 import (
 	"net/http"
 
+	"github.com/joaogabriel/moneto/service/category/config"
 	"github.com/joaogabriel/moneto/service/category/internal/middlewares"
 	"github.com/joaogabriel/moneto/service/category/internal/usecase"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func SetupRoutes(mux *http.ServeMux, uc *usecase.CategoryUsecase, secretKey string) {
+func SetupRoutes(mux *http.ServeMux, uc *usecase.CategoryUsecase) {
 	handler := NewCategoryHandler(uc)
 
-	authMw := middlewares.AuthMiddleware(secretKey) // autenticação via secret
-	corsMw := middlewares.CORSMiddleware            // CORS
+	authMw := middlewares.AuthMiddleware(config.GetConfig().JWTSecret) // autenticação via secret
 
 	// Submux específico de categorias
 	categoryMux := http.NewServeMux()
@@ -24,8 +24,7 @@ func SetupRoutes(mux *http.ServeMux, uc *usecase.CategoryUsecase, secretKey stri
 
 	// Aplica primeiro Auth, depois CORS (mesmo padrão do incomes)
 	protectedMux := authMw(categoryMux)
-	protectedMuxWithCORS := corsMw(protectedMux)
 
-	mux.Handle("/category/", http.StripPrefix("/category", protectedMuxWithCORS))
+	mux.Handle("/category/", http.StripPrefix("/category", protectedMux))
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 }

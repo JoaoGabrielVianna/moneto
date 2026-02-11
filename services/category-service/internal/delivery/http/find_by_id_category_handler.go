@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 )
 
 // @Summary      Buscar categoria por ID
@@ -21,16 +21,16 @@ func (h CategoryHandler) FindByIdCategory(w http.ResponseWriter, r *http.Request
 	id := strings.TrimPrefix(r.URL.Path, "/")
 	if id == "" {
 		log.Error("id da categoria é obrigatório")
-		response.ERROR(w, http.StatusBadRequest, "id da categoria é obrigatório")
+		response.Error(w, http.StatusBadRequest, "id da categoria é obrigatório")
 	}
 
 	category, err := h.usecase.FindById(r.Context(), id)
 	if err != nil {
 		log.Error("categoria não encontrada: %s", err)
-		response.ERROR(w, http.StatusInternalServerError, "categoria não encontrada")
+		response.Error(w, http.StatusInternalServerError, "categoria não encontrada")
 		return
 	}
 
 	log.Success("categoria encontrada com sucesso")
-	response.OK(w, category)
+	response.Success(w, category, "categoria encontrada com sucesso")
 }

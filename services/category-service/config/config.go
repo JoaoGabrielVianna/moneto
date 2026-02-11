@@ -1,65 +1,57 @@
+// ========================================
+// USER SERVICE - Configuração
+// ----------------------------------------
+// Este arquivo conecta o serviço de usuários (user-service)
+// ao sistema de configuração centralizado em pkg/config.
+//
+// Ele define:
+//   - O alias da estrutura de configuração global (Config)
+//   - O acesso à instância do banco de dados global (DB)
+//   - Funções de inicialização e recuperação de configuração
+//
+// Autor: João Gabriel | Projeto Moneto
+// ========================================
 package config
 
 import (
 	"database/sql"
-	"fmt"
-	"path/filepath"
-	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/logger"
-	"github.com/joaogabriel/moneto/pkg/utils"
-	"github.com/joho/godotenv"
+	"github.com/joaogabriel/moneto/pkg/config"
 )
 
-var (
-	log     = logger.Get("System")
-	cfg     *Config
-	pathEnv = filepath.Join("..", "..", ".env")
-	DB      *sql.DB
-)
+// ========================================
+// Tipo e variáveis globais
+// ========================================
+type Config = config.Config
 
-func Init() {
-	utils.Render("CATEGORY")
+var DB *sql.DB
 
-	err := godotenv.Load(pathEnv)
-
-	cfg = LoadEnv()
-	printStartupLogs()
-
-	DB = ConnectDatabase()
-
-	if err != nil {
-		log.Error("Erro ao carregar .env, continuando sem ele")
-	}
-}
-
+// ========================================
+// GetConfig
+// ----------------------------------------
+// Retorna o ponteiro da configuração global atual.
+// Usado quando já existe uma configuração inicializada.
+// ========================================
 func GetConfig() *Config {
-	return cfg
+	return config.GetConfig()
 }
 
-func printStartupLogs() {
-	lines := []string{
-		"🚀 Iniciando Serviço",
-		fmt.Sprintf("Environment: %s", cfg.EnvMode),
-		fmt.Sprintf("Port: %s", cfg.Port),
-		fmt.Sprintf("Database URL: %s", cfg.DatabaseURL),
-		fmt.Sprintf("Servidor HTTP ouvindo em http://localhost:%s", cfg.Port),
-	}
+// ========================================
+// Init
+// ----------------------------------------
+// Inicializa o sistema de configuração para o serviço de usuários.
+//
+// - Lê variáveis de ambiente do arquivo `.env`
+// - Define URLs base e modo de execução (local/docker/prod)
+// - Conecta ao banco de dados PostgreSQL
+// - Exibe logs de inicialização formatados
+//
+// Retorna um ponteiro para a configuração carregada.
+// ========================================
+func Init() *Config {
+	return config.Init("CATEGORY", "CATEGORY_SERVICE_PORT")
+}
 
-	// Descobre o maior tamanho para o separador
-	maxLen := 0
-	for _, line := range lines {
-		if len(line) > maxLen {
-			maxLen = len(line)
-		}
-	}
-
-	separator := strings.Repeat("-", maxLen)
-
-	fmt.Println(separator)
-	log.Warn("%s", lines[0])
-	for _, line := range lines[1:] {
-		log.Info("%s", line)
-	}
-	fmt.Println(separator)
+func GetDB() *sql.DB {
+	return config.GetDB()
 }

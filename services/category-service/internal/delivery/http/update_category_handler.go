@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/joaogabriel/moneto/pkg/response"
+	"github.com/joaogabriel/moneto/pkg/utils/response"
 	"github.com/joaogabriel/moneto/service/category/internal/domain/model"
 )
 
@@ -25,14 +25,14 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 	log.Debug("ID: %s", id)
 	if id == "" {
 		log.Error("Id da categoria é obrigatória")
-		response.ERROR(w, http.StatusBadRequest, "id da categoria é obrigatória")
+		response.Error(w, http.StatusBadRequest, "id da categoria é obrigatória")
 		return
 	}
 
 	var update model.CategoryUpdate
 	if err := json.NewDecoder(r.Body).Decode(&update); err != nil {
 		log.Error("Erro ao decodificar JSON: %s", err)
-		response.ERROR(w, http.StatusBadRequest, "corpo da requisição inválido")
+		response.Error(w, http.StatusBadRequest, "corpo da requisição inválido")
 		return
 	}
 
@@ -40,10 +40,10 @@ func (h *CategoryHandler) UpdateCategory(w http.ResponseWriter, r *http.Request)
 
 	if err != nil {
 		log.Error("erro ao atualizar categoria: %s", err)
-		response.ERROR(w, http.StatusInternalServerError, "erro ao atualizar categoria")
+		response.Error(w, http.StatusInternalServerError, "erro ao atualizar categoria")
 		return
 	}
 
 	log.Success("Categoria atualizada com sucesso!")
-	response.OK(w, income)
+	response.Success(w, income, "Categoria atualizada com sucesso!")
 }
